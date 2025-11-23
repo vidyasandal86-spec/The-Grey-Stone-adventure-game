@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Adventure of the Grey Stone</title>
+<style>
+  :root{
+    --bg:#f7fafc; --card:#ffffff; --accent:#6b8e23; --muted:#6b7280;
+  }
+  html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;}
+  body{background:linear-gradient(180deg,#dfeef0 0%,var(--bg) 40%);display:flex;align-items:center;justify-content:center;padding:20px;}
+  .app{width:100%;max-width:760px;background:var(--card);box-shadow:0 8px 30px rgba(20,30,50,0.08);border-radius:12px;overflow:hidden;}
+  header{background:linear-gradient(90deg,var(--accent),#4b6f1a);color:#fff;padding:18px 20px}
+  header h1{margin:0;font-size:20px}
+  main{padding:20px;min-height:360px}
+  .center{display:flex;align-items:center;justify-content:center;flex-direction:column;text-align:center}
+  button{background:var(--accent);color:#fff;border:0;padding:10px 14px;border-radius:8px;font-weight:600;cursor:pointer}
+  button.ghost{background:transparent;border:2px solid var(--accent);color:var(--accent)}
+  .row{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-top:14px}
+  .info{color:var(--muted);margin-top:10px}
+  .screen{display:none}
+  .screen.active{display:block}
+  .hud{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+  .stone{width:72px;height:72px;border-radius:50%;background:repeating-linear-gradient(135deg,#9aa19a 0 6px,#7f8b7f 6px 12px);display:inline-block;box-shadow:inset -6px -6px 12px rgba(0,0,0,0.12)}
+  .cap, .scarf, .boots{display:inline-block;margin:6px;padding:6px;border-radius:8px;background:#eee}
+  .grid{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(160px,1fr))}
+  .card{background:#fbfff8;border-radius:10px;padding:12px;box-shadow:0 4px 10px rgba(20,30,50,0.04);text-align:left}
+  .small{font-size:14px;color:var(--muted)}
+  .hidden{display:none}
+  footer{padding:12px 20px;background:#fff;border-top:1px solid #eee;text-align:center}
+  /* simple obstacle lane for roads */
+  .lane{height:160px;background:linear-gradient(180deg,#fff 0,#f1f5f9 100%);border-radius:10px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
+  .obstacle{position:absolute;width:56px;height:56px;background:#c2410c;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700}
+  .person{background:#2563eb}
+  .cart{background:#a78bfa}
+  .roadman{background:#fb923c}
+  .fossil{width:84px;height:48px;background:linear-gradient(90deg,#fff 0,#efe3d3 100%);border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:700}
+  @media (max-width:420px){ header h1{font-size:16px} .stone{width:56px;height:56px}}
+</style>
+</head>
+<body>
+<div class="app" role="application" aria-label="Adventure of the Grey Stone Game">
+  <header>
+    <h1>Adventure of the Grey Stone</h1>
+    <div class="small">An interactive story-based learning game — tap to play</div>
+  </header>
+
+  <main>
+    <!-- HUD -->
+    <div class="hud">
+      <div><span class="stone" id="hudStone"></span> <span id="stageLabel" style="margin-left:10px;font-weight:700">Home</span></div>
+      <div id="score" class="small">Stage: 0 / 5</div>
+    </div>
+
+    <!-- SCREENS -->
+    <!-- HOME -->
+    <section id="screen-home" class="screen active center">
+      <h2>Welcome!</h2>
+      <p class="info">Play as the grey stone. Finish each level to reach the mantelpiece.</p>
+      <div class="row">
+        <button id="startBtn">Start Game</button>
+        <button id="vocabBtn" class="ghost">Vocabulary</button>
+        <button id="quizBtn" class="ghost">Quiz</button>
+        <button id="fossilBtn" class="ghost">Fossil Hunt</button>
+      </div>
+    </section>
+
+    <!-- HILL -->
+    <section id="screen-hill" class="screen center">
+      <h2>Level 1 — Hill</h2>
+      <p class="info">Help the stone tumble down the cliff.</p>
+      <div style="height:160px;display:flex;align-items:center;justify-content:center">
+        <div id="hillArea" style="width:140px;height:140px;border-radius:12px;background:linear-gradient(180deg,#e6f6e6,#d8f0d8);display:flex;align-items:center;justify-content:center;flex-direction:column">
+          <div id="stoneHill" class="stone"></div>
+          <div class="small" style="margin-top:6px">Tap to tumble</div>
+        </div>
+      </div>
+      <div class="row"><button id="tumbleBtn">Tumble</button></div>
+    </section>
+
+    <!-- ROADS -->
+    <section id="screen-roads" class="screen center">
+      <h2>Level 2 — Roads</h2>
+      <p class="info">Swipe (drag) the stone to avoid obstacles. Or click the correct answer.</p>
+      <div class="lane" id="lane">
+        <!-- obstacles are added by JS -->
+        <div id="stoneOnRoad" class="stone" style="position:relative;z-index:10"></div>
+      </div>
+      <div style="height:8px"></div>
+      <div class="card small">
+        <div><strong>Question:</strong> How did the stone reach the doormat?</div>
+        <div style="margin-top:8px">
+          <button class="option">It flew by itself</button>
+          <button class="option">By truck</button>
+          <button class="option correct">Along the roads, kicked here and there</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- DOORMAT -->
+    <section id="screen-doormat" class="screen center">
+      <h2>Level 3 — Doormat</h2>
+      <p class="info">Tap to knock. Amanda opens the door.</p>
+      <div style="height:140px;display:flex;align-items:center;justify-content:center">
+        <div style="width:220px;height:120px;border-radius:10px;background:#fff7ed;display:flex;align-items:center;justify-content:center;flex-direction:column">
+          <div style="font-weight:700">Door</div>
+          <div class="small">Knock 3 times</div>
+        </div>
+      </div>
+      <div class="row"><button id="knockBtn">Knock the Door</button></div>
+    </section>
+
+    <!-- INSIDE -->
+    <section id="screen-inside" class="screen center">
+      <h2>Level 4 — Inside the House</h2>
+      <p class="info">Disguise the stone using Amanda's items.</p>
+      <div style="display:flex;gap:12px;align-items:center;justify-content:center;flex-wrap:wrap">
+        <div class="card center" style="min-width:220px">
+          <div class="small">Items to use:</div>
+          <div style="margin:8px 0">
+            <div class="cap">Cap</div>
+            <div class="scarf">Scarf</div>
+            <div class="boots">Boots</div>
+          </div>
+          <div class="small">Drag items onto the stone (or click the button)</div>
+          <div style="height:8px"></div>
+          <button id="disguiseBtn">Disguise the Stone</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- FOSSIL -->
+    <section id="screen-fossil" class="screen center">
+      <h2>Level 5 — Fossil Discovery</h2>
+      <p class="info">Tap the stone with the hammer to chip it. Find the fern fossil.</p>
+      <div style="height:160px;display:flex;align-items:center;justify-content:center;flex-direction:column">
+        <div id="chipArea" style="width:180px;height:120px;border-radius:10px;background:linear-gradient(180deg,#fff,#f3f3f3);display:flex;align-items:center;justify-content:center;flex-direction:column">
+          <div id="fossilMsg" class="small">Tap to chip</div>
+          <div style="height:10px"></div>
+          <button id="chipBtn">Tap with hammer</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- VOCAB -->
+    <section id="screen-vocab" class="screen">
+      <h2>Vocabulary</h2>
+      <p class="small">Match words with short meanings from the lesson.</p>
+      <div class="grid" style="margin-top:12px">
+        <div class="card"><strong>Tumbled</strong><div class="small">— fell</div></div>
+        <div class="card"><strong>Scampering</strong><div class="small">— running quickly</div></div>
+        <div class="card"><strong>Fossil</strong><div class="small">— old remains</div></div>
+        <div class="card"><strong>Disguise</strong><div class="small">— hide</div></div>
+        <div class="card"><strong>Chipped off</strong><div class="small">— broke off</div></div>
+        <div class="card"><strong>Cliff</strong><div class="small">— steep rock</div></div>
+      </div>
+      <div style="height:16px"></div>
+      <div class="row"><button id="vocabBack" class="ghost">Back</button></div>
+    </section>
+
+    <!-- QUIZ -->
+    <section id="screen-quiz" class="screen center">
+      <h2>Mini Quiz</h2>
+      <div class="card" style="max-width:560px">
+        <div id="quizQ" style="font-weight:700">Question will appear here</div>
+        <div style="margin-top:10px">
+          <button class="quizOpt">Option A</button>
+          <button class="quizOpt">Option B</button>
+          <button class="quizOpt">Option C</button>
+        </div>
+        <div id="quizMsg" class="small" style="margin-top:8px"></div>
+      </div>
+      <div style="height:12px"></div>
+      <div class="row"><button id="quizBack" class="ghost">Back</button></div>
+    </section>
+
+    <!-- WIN -->
+    <section id="screen-win" class="screen center">
+      <h2>Well done!</h2>
+      <p class="info">The stone is now on the mantelpiece and admired by everyone.</p>
+      <div class="row">
+        <button id="playAgain">Play Again</button>
+        <button id="homeBtn" class="ghost">Home</button>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="small">
+    Tip: To host this game and get a clickable link, upload this file as <code>index.html</code> to GitHub Pages or Netlify.
+  </footer>
+</div>
+
+<script>
+/* Simple single-file game logic */
+(() => {
+  const screens = {
+    home: document.getElementById('screen-home'),
+    hill: document.getElementById('screen-hill'),
+    roads: document.getElementById('screen-roads'),
+    doormat: document.getElementById('screen-doormat'),
+    inside: document.getElementById('screen-inside'),
+    fossil: document.getElementById('screen-fossil'),
+    vocab: document.getElementById('screen-vocab'),
+    quiz: document.getElementById('screen-quiz'),
+    win: document.getElementById('screen-win')
+  };
+  const stageLabel = document.getElementById('stageLabel');
+  const score = document.getElementById('score');
+  let stage = 0;
+
+  function show(name){
+    Object.values(screens).forEach(s=>s.classList.remove('active'));
+    screens[name].classList.add('active');
+    stageLabel.textContent = name[0].toUpperCase() + name.slice(1);
+    score.textContent = Stage: ${stage} / 5;
+  }
+
+  // Home buttons
+  document.getElementById('startBtn').onclick = () => { stage = 1; show('hill'); updateScore(); };
+  document.getElementById('vocabBtn').onclick = () => show('vocab');
+  document.getElementById('quizBtn').onclick = () => { prepareQuiz(); show('quiz'); };
+  document.getElementById('fossilBtn').onclick = () => { stage = 5; show('fossil'); updateScore(); };
+
+  // Hill: tumble
+  const tumbleBtn = document.getElementById('tumbleBtn');
+  tumbleBtn.onclick = () => {
+    const tv = document.getElementById('stoneHill');
+    tv.style.transform = 'translateY(80px) rotate(30deg)';
+    tv.style.transition = 'transform 900ms ease';
+    setTimeout(()=> {
+      tv.style.transform = '';
+      // move to roads
+      stage = 2; show('roads'); updateScore();
+      spawnObstacles();
+    }, 1000);
+  };
+
+  // Roads: obstacles + question
+  const lane = document.getElementById('lane');
+  function spawnObstacles(){
+    // clear existing
+    lane.querySelectorAll('.obstacle').forEach(n=>n.remove());
+    const types = ['person','cart','roadman'];
+    for(let i=0;i<3;i++){
+      const d = document.createElement('div');
+      d.className = 'obstacle ' + (types[i]);
+      d.style.left = (10 + i*28) + '%';
+      d.style.top = (20 + i*20) + 'px';
+      d.textContent = types[i][0].toUpperCase();
+      lane.appendChild(d);
+      // animate (simple)
+      d.animate([{transform:'translateX(0)'},{transform:'translateX(-40px)'},{transform:'translateX(0)'}],{duration:2200 + i*200,iterations:Infinity});
+    }
+  }
+  // correct option click
+  document.querySelectorAll('.option').forEach(btn=>{
+    btn.onclick = (e) => {
+      if(btn.classList.contains('correct')){
+        alert('Correct — moved to Doormat');
+        stage = 3; show('doormat'); updateScore();
+      } else {
+        alert('Not correct — try again or let another team answer!');
+      }
+    }
+  });
+
+  // Doormat: knock 3 times
+  let knocks = 0;
+  const knockBtn = document.getElementById('knockBtn');
+  knockBtn.onclick = () => {
+    knocks++;
+    knockBtn.textContent = Knock (${knocks}/3);
+    if(knocks >= 3){
+      alert('Amanda opened the door — stone enters the house!');
+      stage = 4; show('inside'); updateScore();
+      knocks = 0; knockBtn.textContent = 'Knock the Door';
+    }
+  };
+
+  // Inside: disguise
+  const disguiseBtn = document.getElementById('disguiseBtn');
+  disguiseBtn.onclick = () => {
+    alert("Stone disguised using Amanda's cap, scarf and boots.");
+    stage = 5; show('fossil'); updateScore();
+  };
+
+  // Fossil: chip to find fossil
+  const chipBtn = document.getElementById('chipBtn');
+  let taps = 0;
+  chipBtn.onclick = () => {
+    taps++;
+    const msg = document.getElementById('fossilMsg');
+    if(taps < 3) msg.textContent = 'Tapping...';
+    else {
+      msg.textContent = 'A beautiful fern fossil is found!';
+      setTimeout(()=> {
+        stage = 5;
+        show('win');
+        updateScore();
+        taps = 0;
+      }, 900);
+    }
+  };
+
+  // Vocab back
+  document.getElementById('vocabBack').onclick = ()=> show('home');
+  // Quiz back
+  document.getElementById('quizBack').onclick = ()=> show('home');
+
+  // Win / replay
+  document.getElementById('playAgain').onclick = ()=> { stage = 0; show('home'); };
+  document.getElementById('homeBtn').onclick = ()=> { stage = 0; show('home'); };
+
+  function updateScore(){ score.textContent = Stage: ${stage} / 5; }
+
+  // Simple quiz implementation
+  const quizData = [
+    {q:'Who opened the door?', opts:['Amanda','Father','A stranger'], a:0},
+    {q:'What was inside the stone?', opts:['A jewel','A fern fossil','A coin'], a:1},
+    {q:'What did the stone do at the hill?', opts:['Tumbled','Sang','Flew'], a:0}
+  ];
+  let qIndex = 0;
+  function prepareQuiz(){
+    qIndex = 0;
+    renderQuiz();
+  }
+  function renderQuiz(){
+    const cur = quizData[qIndex];
+    document.getElementById('quizQ').textContent = cur.q;
+    const opts = [...document.querySelectorAll('.quizOpt')];
+    opts.forEach((b,i)=>{
+      b.textContent = cur.opts[i] || '';
+      b.onclick = () => {
+        if(i === cur.a){
+          document.getElementById('quizMsg').textContent = 'Correct!';
+        } else {
+          document.getElementById('quizMsg').textContent = 'Try next question.';
+        }
+        qIndex++;
+        if(qIndex < quizData.length){
+          setTimeout(()=>{ renderQuiz(); document.getElementById('quizMsg').textContent=''; }, 700);
+        } else {
+          setTimeout(()=>{ alert('Quiz finished!'); show('home'); }, 700);
+        }
+      }
+    });
+  }
+
+  // initialize
+  show('home');
+})();
+</script>
+</body>
+</html>
